@@ -1,0 +1,13 @@
+{
+  "usuarios": [
+    {
+      "id": "0be9ae6c-8a80-4a74-bb57-945bf9ec89e9",
+      "email": "wilgner.souza@sxpartners.net",
+      "nome": "Wilgner",
+      "senhaHash": "$2a$10$pMUQc/C6ZThXODry.HfdZOJ49r7jvOdVqXi6zDi3QQy42SyIHpn/m",
+      "criadoEm": "2026-08-19T18:15:42.884Z",
+      "ultimoAcesso": null,
+      "ativo": true
+    }
+  ]
+}
