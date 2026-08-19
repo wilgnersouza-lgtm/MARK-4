@@ -22,3 +22,5 @@ npm-debug.log*
 # Uploads temporários
 uploads/
 tmp/
+backend/data/usuarios.json
+usuarios.json
