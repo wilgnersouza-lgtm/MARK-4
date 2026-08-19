@@ -1,4 +1,4 @@
-# 🚀 PRÓXIMAS ETAPAS - NFe Validador
+# 🚀 PRÓXIMAS ETAPAS - NFe Validator
 
 ## 📦 Estrutura Completa Criada ✅
 
