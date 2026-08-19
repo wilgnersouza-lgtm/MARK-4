@@ -121,12 +121,20 @@ router.post('/register', async (req: Request, res: Response) => {
  * Informa se já existe algum usuário — a tela usa isso para exibir
  * "criar primeira conta" em vez de "entrar" numa instalação nova.
  */
-router.get('/status', (_req: Request, res: Response) => {
-  res.json({
-    success: true,
-    data: { possuiUsuarios: usuarioService.existeAlgum() },
-    timestamp: new Date().toISOString(),
-  });
+router.get('/status', async (_req: Request, res: Response) => {
+  try {
+    res.json({
+      success: true,
+      data: { possuiUsuarios: await usuarioService.existeAlgum() },
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      timestamp: new Date().toISOString(),
+    });
+  }
 });
 
 /**
@@ -134,7 +142,7 @@ router.get('/status', (_req: Request, res: Response) => {
  * Gera token de redefinição. Responde sucesso mesmo para e-mail inexistente,
  * para não revelar quais endereços possuem conta.
  */
-router.post('/esqueci-senha', (req: Request, res: Response) => {
+router.post('/esqueci-senha', async (req: Request, res: Response) => {
   try {
     const { email } = req.body as { email?: string };
 
@@ -146,7 +154,7 @@ router.post('/esqueci-senha', (req: Request, res: Response) => {
       });
     }
 
-    const resultado = usuarioService.solicitarRecuperacao(email);
+    const resultado = await usuarioService.solicitarRecuperacao(email);
 
     res.json({
       success: true,

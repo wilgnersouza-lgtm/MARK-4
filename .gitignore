@@ -10,6 +10,12 @@ build/
 .env.local
 .env.*.local
 
+# Dados gravados em execução — contêm hashes de senha e tokens de recuperação.
+# As tabelas fiscais (tax-rules, cclasstrib, reforma-transicao) SÃO versionadas;
+# apenas o cadastro de usuários fica de fora.
+backend/data/usuarios.json
+usuarios.json
+
 # Logs
 *.log
 npm-debug.log*
@@ -22,7 +28,3 @@ npm-debug.log*
 # Uploads temporários
 uploads/
 tmp/
-backend/data/usuarios.json
-usuarios.json
-backend/data/usuarios.json
-usuarios.json

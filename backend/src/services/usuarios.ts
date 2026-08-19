@@ -1,8 +1,7 @@
-import * as fs from 'fs';
-import * as path from 'path';
 import * as crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import { config } from '../config';
+import { ArmazenamentoUsuarios, criarArmazenamento } from './armazenamentoUsuarios';
 
 export interface Usuario {
   id: string;
@@ -34,42 +33,26 @@ const VALIDADE_TOKEN_MINUTOS = 30;
  * mantendo a mesma interface pública desta classe.
  */
 export class UsuarioService {
-  private caminho: string;
+  private armazenamento: ArmazenamentoUsuarios;
 
   constructor() {
-    // Diretório gravável e persistente — separado das tabelas fiscais, que são
-    // somente leitura e vêm versionadas com o código.
-    const dir = config.writableDir;
+    // A implementação (arquivo ou Redis) é decidida pelas variáveis de ambiente
+    this.armazenamento = criarArmazenamento();
+  }
 
+  private async ler(): Promise<BaseUsuarios> {
     try {
-      if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
-      }
+      const conteudo = await this.armazenamento.ler();
+      if (!conteudo) return { usuarios: [] };
+      return JSON.parse(conteudo);
     } catch (erro: any) {
-      console.warn(
-        `⚠️  Não foi possível criar ${dir} (${erro.message}). ` +
-          `Usando ${process.cwd()} — os usuários NÃO sobreviverão a um novo deploy.`
-      );
-      this.caminho = path.join(process.cwd(), 'usuarios.json');
-      return;
-    }
-
-    this.caminho = path.join(dir, 'usuarios.json');
-  }
-
-  private ler(): BaseUsuarios {
-    if (!fs.existsSync(this.caminho)) {
-      return { usuarios: [] };
-    }
-    try {
-      return JSON.parse(fs.readFileSync(this.caminho, 'utf-8'));
-    } catch {
-      return { usuarios: [] };
+      console.error(`Erro ao ler usuários: ${erro.message}`);
+      throw new Error('Não foi possível acessar o cadastro de usuários.');
     }
   }
 
-  private gravar(base: BaseUsuarios) {
-    fs.writeFileSync(this.caminho, JSON.stringify(base, null, 2), 'utf-8');
+  private async gravar(base: BaseUsuarios): Promise<void> {
+    await this.armazenamento.gravar(JSON.stringify(base, null, 2));
   }
 
   private normalizar(email: string): string {
@@ -87,13 +70,15 @@ export class UsuarioService {
     };
   }
 
-  existeAlgum(): boolean {
-    return this.ler().usuarios.length > 0;
+  async existeAlgum(): Promise<boolean> {
+    const base = await this.ler();
+    return base.usuarios.length > 0;
   }
 
-  buscarPorEmail(email: string): Usuario | null {
+  async buscarPorEmail(email: string): Promise<Usuario | null> {
     const alvo = this.normalizar(email);
-    return this.ler().usuarios.find(u => u.email === alvo) || null;
+    const base = await this.ler();
+    return base.usuarios.find(u => u.email === alvo) || null;
   }
 
   /**
@@ -109,7 +94,7 @@ export class UsuarioService {
       throw new Error('A senha deve ter ao menos 8 caracteres.');
     }
 
-    const base = this.ler();
+    const base = await this.ler();
     if (base.usuarios.some(u => u.email === alvo)) {
       throw new Error('Já existe uma conta com este e-mail.');
     }
@@ -125,7 +110,7 @@ export class UsuarioService {
     };
 
     base.usuarios.push(usuario);
-    this.gravar(base);
+    await this.gravar(base);
 
     return this.publico(usuario);
   }
@@ -138,7 +123,7 @@ export class UsuarioService {
    * conta no sistema.
    */
   async autenticar(email: string, senha: string) {
-    const usuario = this.buscarPorEmail(email);
+    const usuario = await this.buscarPorEmail(email);
 
     if (!usuario || !usuario.ativo) {
       // Compara mesmo assim, para o tempo de resposta não denunciar a diferença
@@ -151,10 +136,10 @@ export class UsuarioService {
       throw new Error('E-mail ou senha incorretos.');
     }
 
-    const base = this.ler();
+    const base = await this.ler();
     const registro = base.usuarios.find(u => u.id === usuario.id)!;
     registro.ultimoAcesso = new Date().toISOString();
-    this.gravar(base);
+    await this.gravar(base);
 
     return this.publico(registro);
   }
@@ -165,8 +150,8 @@ export class UsuarioService {
    * Devolve sempre sucesso, mesmo para e-mail inexistente, para não revelar
    * quais endereços possuem conta.
    */
-  solicitarRecuperacao(email: string) {
-    const usuario = this.buscarPorEmail(email);
+  async solicitarRecuperacao(email: string) {
+    const usuario = await this.buscarPorEmail(email);
 
     if (!usuario) {
       return { enviado: true, token: null as string | null };
@@ -175,11 +160,11 @@ export class UsuarioService {
     const token = crypto.randomBytes(32).toString('hex');
     const expira = new Date(Date.now() + VALIDADE_TOKEN_MINUTOS * 60_000).toISOString();
 
-    const base = this.ler();
+    const base = await this.ler();
     const registro = base.usuarios.find(u => u.id === usuario.id)!;
     registro.tokenRecuperacao = crypto.createHash('sha256').update(token).digest('hex');
     registro.tokenExpiraEm = expira;
-    this.gravar(base);
+    await this.gravar(base);
 
     // O envio por e-mail depende de SMTP configurado, que este projeto não tem.
     // Em desenvolvimento o token volta na resposta; em produção ele deve ser
@@ -197,7 +182,7 @@ export class UsuarioService {
     }
 
     const hashToken = crypto.createHash('sha256').update(token).digest('hex');
-    const base = this.ler();
+    const base = await this.ler();
     const registro = base.usuarios.find(u => u.tokenRecuperacao === hashToken);
 
     if (!registro) {
@@ -210,7 +195,7 @@ export class UsuarioService {
     registro.senhaHash = await bcrypt.hash(novaSenha, CUSTO_HASH);
     registro.tokenRecuperacao = null;
     registro.tokenExpiraEm = null;
-    this.gravar(base);
+    await this.gravar(base);
 
     return this.publico(registro);
   }
@@ -222,10 +207,10 @@ export class UsuarioService {
       throw new Error('A nova senha deve ter ao menos 8 caracteres.');
     }
 
-    const base = this.ler();
+    const base = await this.ler();
     const registro = base.usuarios.find(u => u.email === this.normalizar(email))!;
     registro.senhaHash = await bcrypt.hash(novaSenha, CUSTO_HASH);
-    this.gravar(base);
+    await this.gravar(base);
 
     return this.publico(registro);
   }

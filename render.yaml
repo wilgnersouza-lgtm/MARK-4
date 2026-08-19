@@ -5,6 +5,11 @@
 # cadastrados sumiriam e o upload não encontraria a própria sessão. Aqui roda um
 # processo contínuo, com disco persistente montado em /app/data.
 #
+# O plano gratuito do Render NÃO permite disco persistente. Por isso os usuários
+# são guardados num Redis gerenciado (Upstash tem plano gratuito), configurado
+# pelas variáveis UPSTASH_REDIS_REST_URL e UPSTASH_REDIS_REST_TOKEN abaixo.
+# Sem elas o backend usa arquivo, e os cadastros somem a cada deploy.
+#
 # Qualquer host com processo persistente serve igualmente: Railway, Fly.io,
 # uma VPS com Docker. O que não funciona é serverless puro.
 
@@ -45,15 +50,21 @@ services:
       # repositório — NÃO aponte DATA_DIR para o disco, senão elas somem.
       # Deixando sem definir, o backend usa backend/data do próprio código.
 
-      # Só os dados gravados em execução vão para o disco persistente
-      - key: WRITABLE_DIR
-        value: /var/dados
+      # PREENCHA no painel do Render (Environment), com os valores do seu
+      # banco Upstash. Sem isso os usuários são perdidos a cada deploy.
+      - key: UPSTASH_REDIS_REST_URL
+        sync: false
+      - key: UPSTASH_REDIS_REST_TOKEN
+        sync: false
 
       - key: MAX_UPLOAD_SIZE
         value: 52428800
 
-    # Sem o disco, usuarios.json é perdido a cada novo deploy
-    disk:
-      name: dados
-      mountPath: /var/dados
-      sizeGB: 1
+# Nota: discos persistentes exigem plano pago no Render. Se você migrar para um
+# plano com disco, remova as variáveis UPSTASH_* acima, defina
+# WRITABLE_DIR=/var/dados e adicione ao serviço:
+#
+#   disk:
+#     name: dados
+#     mountPath: /var/dados
+#     sizeGB: 1

@@ -30,16 +30,44 @@ funciona sem alterar código.
 
 ---
 
-## 1. Backend no Render
+## 1. Onde guardar os usuários (antes de tudo)
+
+O plano gratuito do Render **não permite disco persistente**. Sem disco, o
+sistema de arquivos é apagado a cada deploy e a cada hibernação — todos os
+cadastros desapareceriam.
+
+A solução gratuita é um Redis gerenciado. No **Upstash**
+(https://upstash.com), crie um banco Redis no plano gratuito e copie os dois
+valores da seção REST API:
+
+- `UPSTASH_REDIS_REST_URL`
+- `UPSTASH_REDIS_REST_TOKEN`
+
+Você vai colar esses valores no Render no próximo passo. O backend detecta
+essas variáveis e passa a guardar os usuários lá, sem tocar em disco.
+
+**Se você preferir plano pago no Render** (a partir de US$ 7/mês), pode usar
+disco em vez de Redis: remova as variáveis `UPSTASH_*`, defina
+`WRITABLE_DIR=/var/dados` e descomente o bloco `disk` no fim do `render.yaml`.
+
+**Se não configurar nem um nem outro**, a aplicação funciona, mas os usuários
+somem no próximo deploy — e o backend registra um aviso no log alertando sobre
+isso.
+
+## 2. Backend no Render
 
 1. Suba o projeto para o GitHub.
 2. No Render: **New > Blueprint**, aponte para o repositório. Ele lê o
    `render.yaml` da raiz.
-3. Antes de confirmar, ajuste `CORS_ORIGIN` para a URL real do seu frontend na
+3. Em **Environment**, cole `UPSTASH_REDIS_REST_URL` e
+   `UPSTASH_REDIS_REST_TOKEN`. Elas estão marcadas como `sync: false` no
+   blueprint justamente para não ficarem no repositório.
+4. Antes de confirmar, ajuste `CORS_ORIGIN` para a URL real do seu frontend na
    Vercel. **Em produção, apenas as origens listadas aí são aceitas** — é o que
    impede qualquer site de consumir sua API.
-4. Confirme que o disco persistente ficou montado em `/app/data`. Sem ele, os
-   usuários somem a cada deploy.
+5. No log do primeiro deploy, confirme a linha `✅ Usuários em Redis: ...`. Se
+   aparecer `✅ Usuários em arquivo (...)`, as variáveis do Upstash não foram
+   lidas e os cadastros serão perdidos no próximo deploy.
 
 Ao final você terá uma URL como `https://nfe-validator-api.onrender.com`.
 Teste antes de seguir:
@@ -54,7 +82,7 @@ Deve responder `{"status":"ok",...}`.
 > requisição pode levar ~30 segundos para responder. A tela de login vai
 > parecer travada nesse intervalo. Em plano pago isso não acontece.
 
-## 2. Frontend na Vercel
+## 3. Frontend na Vercel
 
 ### Configuração do projeto
 
@@ -90,7 +118,7 @@ momento do build; alterá-las sem reconstruir não muda nada.
 O `vercel.json` na raiz já configura o build a partir da pasta `frontend/` e o
 redirecionamento de rotas para o `index.html`.
 
-## 3. Conferindo
+## 4. Conferindo
 
 1. Abra a URL da Vercel.
 2. Crie a primeira conta.
