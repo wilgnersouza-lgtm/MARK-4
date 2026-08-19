@@ -1,4 +1,4 @@
-# 🌐 Acesso à API - NFe Validator
+# 🌐 Acesso à API - NFe Validador
 
 ## ✅ Status do Servidor
 - **Status**: 🟢 ONLINE

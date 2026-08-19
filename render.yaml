@@ -21,7 +21,11 @@ services:
     region: oregon
     rootDir: backend
 
-    buildCommand: npm ci && npm run build
+    # --include=dev é obrigatório: com NODE_ENV=production o npm pula as
+    # devDependencies, e o TypeScript está entre elas. Sem ele o build usa um
+    # tsc do sistema, de outra versão, e falha com erros de @types e de
+    # moduleResolution que não acontecem localmente.
+    buildCommand: npm ci --include=dev && npm run build
     startCommand: npm start
 
     healthCheckPath: /health

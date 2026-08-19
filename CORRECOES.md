@@ -207,3 +207,31 @@ escuro. O autofill do Chrome piorava, repintando o campo de branco.
 do tema, cursor na cor da marca, e `-webkit-text-fill-color` branco também no
 estado de autofill. Checkbox, radio e range ficam de fora da regra de fundo,
 para não perderem a aparência nativa.
+
+
+---
+
+## Build falhando no Render
+
+**Sintoma:** `Cannot find type definition file for 'jest'`, o mesmo para
+`node`, e `Option 'moduleResolution=node10' has been removed`. Nada disso
+acontecia localmente.
+
+**Causa:** o `render.yaml` define `NODE_ENV=production`, e nesse modo o
+`npm ci` **pula as devDependencies** — onde está o TypeScript. Sem o compilador
+local, o `npm run build` caía num `tsc` do sistema, de versão mais nova, que
+não encontra os `@types` (também devDependencies) e já removeu a opção de
+`moduleResolution` usada aqui. Um único problema produzindo três erros
+aparentemente independentes.
+
+**Correção:**
+
+1. `buildCommand: npm ci --include=dev && npm run build` — garante o TypeScript
+   do projeto, na versão declarada, independentemente do `NODE_ENV`.
+2. `moduleResolution` passou de `"node"` para `"node10"`, que é o nome atual do
+   mesmo comportamento e é aceito desde o TypeScript 5.
+3. `types` deixou de exigir `"jest"`, que não é necessário para compilar o
+   servidor e só existe com as devDependencies instaladas.
+
+Validado reproduzindo o ambiente: `NODE_ENV=production npm ci --include=dev &&
+npm run build` compila sem erros, e `node dist/server.js` sobe com o Redis.
